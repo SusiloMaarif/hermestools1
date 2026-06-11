@@ -265,6 +265,7 @@ function SettingsPage({ baseUrl, setBaseUrl, apiKey, setApiKey, loadModels }) { 
 function RouterAdminPage() {
   const [providers, setProviders] = useState([]);
   const [connections, setConnections] = useState([]);
+  const [combos, setCombos] = useState([]);
   const [msg, setMsg] = useState('');
   const [form, setForm] = useState({
     name: '',
@@ -288,7 +289,21 @@ function RouterAdminPage() {
       setMsg(`Error: ${e.message}`);
     }
   }
+async function loadCombos() {
+  try {
+    const res = await fetch(`${ADMIN_BASE_URL}/combos`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+    });
 
+    const data = await res.json();
+
+    if (res.ok) {
+      setCombos(data.combos || []);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
   async function addProvider() {
     setMsg('Adding provider...');
     try {
@@ -332,8 +347,9 @@ function RouterAdminPage() {
   }
 
   useEffect(() => {
-    loadProviders();
-  }, []);
+  loadProviders();
+  loadCombos();
+}, []);
 
   return <section>
     <div className="title"><h2>Router Admin</h2><span className="pill">OmniRoute</span></div>
@@ -364,6 +380,22 @@ function RouterAdminPage() {
           <button onClick={()=>deleteProvider(p.id)}>Delete</button>
         </div>
       })}
+        <div className="card">
+      <h3>Combos</h3>
+      {combos.length === 0 ? (
+        <div className="notice">No combos found</div>
+      ) : (
+        combos.map(c => (
+          <div key={c.id} className="modelItem">
+            <div>
+              <b>{c.name || c.id}</b>
+              <div className="model-provider">
+                {c.updated_at || c.created_at || '-'}
+              </div>
+            </div>
+          </div>
+        ))
+      )}
     </div>
   </section>;
 }
