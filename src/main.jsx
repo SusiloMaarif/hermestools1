@@ -115,7 +115,7 @@ function App() {
     setMessages(next);
     setBusy(true);
     try {
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
+      const res = await fetch('/api/chat', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
