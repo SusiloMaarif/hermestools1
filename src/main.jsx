@@ -116,29 +116,41 @@ function App() {
     setBusy(true);
     try {
       const res = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: next.map(m => ({ role: m.role, content: m.content })),
-          temperature: 0.7
-        })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || data.choices?.[0]?.text || 'Tidak ada output.';
-      setMessages([...next, { role: 'assistant', content: reply }]);
-      setUsage(u => ({ requests: u.requests + 1, tokens: u.tokens + (data.usage?.total_tokens || 0), errors: u.errors }));
-    } catch (e) {
-      setMessages([...next, { role: 'assistant', content: `Gagal connect ke OmniRoute: ${e.message}. Kalau app dibuka dari HTTPS/Vercel, HTTP router bisa diblokir mixed-content. Gunakan HTTPS reverse proxy/tunnel.` }]);
-      setUsage(u => ({ ...u, errors: u.errors + 1 }));
-    } finally {
-      setBusy(false);
-    }
-  }
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {})
+  },
+  body: JSON.stringify({
+    model: selectedModel,
+    messages: next.map(m => ({ role: m.role, content: m.content })),
+    temperature: 0.7,
+    stream: false
+  })
+});
+
+let data = {};
+try {
+  data = await res.json();
+} catch {
+  data = {};
+}
+
+if (!res.ok) {
+  throw new Error(`HTTP ${res.status}: ${data?.error?.message || data?.message || 'request failed'}`);
+}
+
+const reply =
+  data?.choices?.[0]?.message?.content ||
+  data?.choices?.[0]?.text ||
+  'Tidak ada output.';
+
+setMessages([...next, { role: 'assistant', content: reply }]);
+setUsage(u => ({
+  requests: u.requests + 1,
+  tokens: u.tokens + (data.usage?.total_tokens || 0),
+  errors: u.errors
+}));
 
   return <div className="app">
     <Header status={status} />
