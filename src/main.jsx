@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Activity, Bot, Cable, CheckCircle2, ChevronDown, Clipboard, CreditCard, Home, Mail, MessageCircle, MoreHorizontal, Play, RefreshCcw, Send, Settings, ShieldCheck, Sparkles, Video, Zap } from 'lucide-react';
 import './styles.css';
 
-const DEFAULT_BASE_URL = 'http://124.156.205.89:20129/v1';
+const DEFAULT_BASE_URL = 'https://router.susilo.my.id/v1';
 const TEMP_MAIL_BASE = 'https://api.mail.tm';
 
 function getSaved(key, fallback) {
