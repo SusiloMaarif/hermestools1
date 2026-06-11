@@ -368,6 +368,5 @@ function RouterAdminPage() {
   </section>;
 }
 function MorePage({ setPage }) { const items=[['chat','AI Chat',<MessageCircle/>],['cc','CC Tools',<CreditCard/>],['tempmail','Temp Mail',<Mail/>],['video','Video',<Video/>],['settings','Settings',<Settings/>,['routeradmin','Router Admin',Bot]]; return <section><div className="title"><h2>More</h2><MoreHorizontal/></div><div className="menuGrid">{items.map(([id,label,icon])=><button key={id} onClick={()=>setPage(id)}>{icon}<span>{label}</span><ChevronDown size={15}/></button>)}</div></section>; }
-function BottomNav({ page, setPage }) { const nav=[['dashboard','Dashboard',<Home/>],['cc','CC Tools',<CreditCard/>],['tempmail','Temp Mail',<Mail/>],['video','Video',<Video/>],['settings','Settings',<Settings/>],['more','More',<MoreHorizontal/>]]; return <nav className="bottom">{nav.map(([id,label,icon])=><button key={id} className={page===id?'active':''} onClick={()=>setPage(id)}>{icon}<span>{label}</span></button>)}</nav>; }
-
+function BottomNav({ page, setPage }) { const nav=[['dashboard','Dashboard',Home],['cc','CC Tools',CreditCard],['tempmail','Temp Mail',Mail],['video','Video',Video],['settings','Settings',Settings],['more','More',MoreHorizontal]]; return <nav className="bottom">{nav.map(([id,label,icon])=>{const Icon=icon;return <button key={id} className={page===id?'active':''} onClick={()=>setPage(id)}><Icon size={18}/><span>{label}</span></button>})}</nav>; }
 createRoot(document.getElementById('root')).render(<App />);
