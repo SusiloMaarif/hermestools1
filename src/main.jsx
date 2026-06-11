@@ -152,6 +152,16 @@ setUsage(u => ({
   errors: u.errors
 }));
 
+     } catch (e) {
+    setMessages([...next, {
+      role: 'assistant',
+      content: `Gagal connect ke OmniRoute: ${e.message}`
+    }]);
+    setUsage(u => ({ ...u, errors: u.errors + 1 }));
+  } finally {
+    setBusy(false);
+  }
+}
   return <div className="app">
     <Header status={status} />
     <TopTabs page={page} setPage={setPage} />
