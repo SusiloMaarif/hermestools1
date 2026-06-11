@@ -380,7 +380,7 @@ async function loadCombos() {
           <button onClick={()=>deleteProvider(p.id)}>Delete</button>
         </div>
       })}
-        <div className="card">
+        </div><div className="card">
       <h3>Combos</h3>
       {combos.length === 0 ? (
         <div className="notice">No combos found</div>
