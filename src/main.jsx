@@ -4,6 +4,8 @@ import { Activity, Bot, Cable, CheckCircle2, ChevronDown, Clipboard, CreditCard,
 import './styles.css';
 
 const DEFAULT_BASE_URL = 'https://router.susilo.my.id/v1';
+const ADMIN_BASE_URL = 'https://admin.susilo.my.id/admin';
+const ADMIN_TOKEN = 'ronksok-admin-123';
 const TEMP_MAIL_BASE = 'https://api.mail.tm';
 
 function getSaved(key, fallback) {
@@ -176,6 +178,7 @@ setUsage(u => ({
       {page === 'video' && <VideoPage models={modelNames} />}
       {page === 'settings' && <SettingsPage baseUrl={baseUrl} setBaseUrl={setBaseUrl} apiKey={apiKey} setApiKey={setApiKey} loadModels={loadModels} />}
       {page === 'more' && <MorePage setPage={setPage} />}
+      {page === 'routeradmin' && <RouterAdminPage />}
     </main>
     <BottomNav page={page} setPage={setPage} />
   </div>;
@@ -259,7 +262,112 @@ function TempMail() {
 }
 function VideoPage({ models }) { return <section><div className="title"><h2>Video</h2><Play/></div><div className="card"><p className="muted">Halaman video siap untuk model video yang muncul dari OmniRoute seperti VEO/Seedance. Endpoint video bisa disambungkan sesuai format API router kamu.</p>{models.filter(m=>/veo|seedance|video/i.test(m)).map(m=><div className="model" key={m}><b>{m}</b><span>video-capable candidate</span></div>)}</div></section>; }
 function SettingsPage({ baseUrl, setBaseUrl, apiKey, setApiKey, loadModels }) { return <section><div className="title"><h2>Settings</h2><Settings/></div><div className="card"><label>Base URL</label><input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)}/><label>Authorization Bearer</label><input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="optional"/><button className="wide" onClick={loadModels}>Save & Test</button></div></section>; }
-function MorePage({ setPage }) { const items=[['chat','AI Chat',<MessageCircle/>],['cc','CC Tools',<CreditCard/>],['tempmail','Temp Mail',<Mail/>],['video','Video',<Video/>],['settings','Settings',<Settings/>]]; return <section><div className="title"><h2>More</h2><MoreHorizontal/></div><div className="menuGrid">{items.map(([id,label,icon])=><button key={id} onClick={()=>setPage(id)}>{icon}<span>{label}</span><ChevronDown size={15}/></button>)}</div></section>; }
+function RouterAdminPage() {
+  const [providers, setProviders] = useState([]);
+  const [connections, setConnections] = useState([]);
+  const [msg, setMsg] = useState('');
+  const [form, setForm] = useState({
+    name: '',
+    prefix: '',
+    baseUrl: '',
+    apiKey: ''
+  });
+
+  async function loadProviders() {
+    setMsg('Loading providers...');
+    try {
+      const res = await fetch(`${ADMIN_BASE_URL}/providers`, {
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setProviders(data.nodes || []);
+      setConnections(data.connections || []);
+      setMsg('Providers loaded');
+    } catch (e) {
+      setMsg(`Error: ${e.message}`);
+    }
+  }
+
+  async function addProvider() {
+    setMsg('Adding provider...');
+    try {
+      const res = await fetch(`${ADMIN_BASE_URL}/provider/add`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${ADMIN_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(form)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setForm({ name: '', prefix: '', baseUrl: '', apiKey: '' });
+      setMsg('Provider added');
+      loadProviders();
+    } catch (e) {
+      setMsg(`Error: ${e.message}`);
+    }
+  }
+
+  async function deleteProvider(providerId) {
+    if (!confirm('Delete provider ini?')) return;
+    setMsg('Deleting provider...');
+    try {
+      const res = await fetch(`${ADMIN_BASE_URL}/provider/delete`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${ADMIN_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ providerId })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setMsg('Provider deleted');
+      loadProviders();
+    } catch (e) {
+      setMsg(`Error: ${e.message}`);
+    }
+  }
+
+  useEffect(() => {
+    loadProviders();
+  }, []);
+
+  return <section>
+    <div className="title"><h2>Router Admin</h2><span className="pill">OmniRoute</span></div>
+
+    <div className="card">
+      <h3>Add Provider</h3>
+      <label>Name</label>
+      <input value={form.name} onChange={e=>setForm({...form, name:e.target.value})} placeholder="kimchi-new" />
+      <label>Prefix</label>
+      <input value={form.prefix} onChange={e=>setForm({...form, prefix:e.target.value})} placeholder="kimchi-new" />
+      <label>Base URL</label>
+      <input value={form.baseUrl} onChange={e=>setForm({...form, baseUrl:e.target.value})} placeholder="https://example.com/v1" />
+      <label>API Key</label>
+      <input value={form.apiKey} onChange={e=>setForm({...form, apiKey:e.target.value})} placeholder="sk-..." />
+      <button className="wide" onClick={addProvider}>Add Provider</button>
+      <div className="notice">{msg}</div>
+    </div>
+
+    <div className="modelList">
+      {providers.map(p => {
+        const conn = connections.find(c => c.provider === p.id);
+        return <div className="modelItem" key={p.id}>
+          <div>
+            <b>{p.name}</b>
+            <div className="model-provider">{p.base_url}</div>
+            <div className="model-provider">active: {conn?.is_active ? 'yes' : 'no'} • status: {conn?.test_status || '-'}</div>
+          </div>
+          <button onClick={()=>deleteProvider(p.id)}>Delete</button>
+        </div>
+      })}
+    </div>
+  </section>;
+}
+function MorePage({ setPage }) { const items=[['chat','AI Chat',<MessageCircle/>],['cc','CC Tools',<CreditCard/>],['tempmail','Temp Mail',<Mail/>],['video','Video',<Video/>],['settings','Settings',<Settings/>,['routeradmin','Router Admin',Bot]]; return <section><div className="title"><h2>More</h2><MoreHorizontal/></div><div className="menuGrid">{items.map(([id,label,icon])=><button key={id} onClick={()=>setPage(id)}>{icon}<span>{label}</span><ChevronDown size={15}/></button>)}</div></section>; }
 function BottomNav({ page, setPage }) { const nav=[['dashboard','Dashboard',<Home/>],['cc','CC Tools',<CreditCard/>],['tempmail','Temp Mail',<Mail/>],['video','Video',<Video/>],['settings','Settings',<Settings/>],['more','More',<MoreHorizontal/>]]; return <nav className="bottom">{nav.map(([id,label,icon])=><button key={id} className={page===id?'active':''} onClick={()=>setPage(id)}>{icon}<span>{label}</span></button>)}</nav>; }
 
 createRoot(document.getElementById('root')).render(<App />);
