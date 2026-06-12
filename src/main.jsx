@@ -72,6 +72,17 @@ function CCTools() {
   const [expiry, setExpiry] = useState('');
   const [cvv, setCvv] = useState('');
   const [copied, setCopied] = useState('');
+  const [randomExpiry, setRandomExpiry] = useState(false);
+  const [randomCvv, setRandomCvv] = useState(false);
+
+  function randExpiry() {
+    const mm = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+    const yy = String(Math.floor(Math.random() * 8) + 26);
+    return `${mm}/${yy}`;
+  }
+  function randCvv(len = 3) {
+    return String(Math.floor(Math.random() * Math.pow(10, len))).padStart(len, '0');
+  }
 
   const cleanCard = cleanCardNumber(card);
   const valid = luhnCheck(cleanCard);
@@ -160,7 +171,10 @@ function CCTools() {
   function generateBulk() {
     const results = [];
     for (let i = 0; i < bulkCount; i++) {
-      results.push(generateLuhn(prefix, length));
+      const cardNum = generateLuhn(prefix, length);
+      const exp = randomExpiry ? randExpiry() : expiry;
+      const cv = randomCvv ? randCvv(3) : cvv;
+      results.push({ card: cardNum, expiry: exp, cvv: cv });
     }
     setGenerated(results);
   }
@@ -242,8 +256,9 @@ function CCTools() {
               onChange={handleExpiryChange}
               placeholder="12/28"
               className="mono-input"
+              disabled={randomExpiry}
             />
-            {expiry.length >= 5 && (
+            {expiry.length >= 5 && !randomExpiry && (
               <div className={`notice ${expiryValid ? 'online' : 'offline'}`}>
                 {expiryValid ? <><CheckCircle2 size={14}/> Valid</> : <><X size={14}/> Invalid</>}
               </div>
@@ -257,13 +272,24 @@ function CCTools() {
               placeholder="123"
               className="mono-input"
               type="password"
+              disabled={randomCvv}
             />
-            {cvv.length >= 3 && (
+            {cvv.length >= 3 && !randomCvv && (
               <div className={`notice ${cvvValid ? 'online' : 'offline'}`}>
                 {cvvValid ? <><CheckCircle2 size={14}/> Valid</> : <><X size={14}/> Invalid</>}
               </div>
             )}
           </div>
+        </div>
+        <div style={{display:'flex',gap:10,marginTop:10,flexWrap:'wrap'}}>
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',margin:0,color:'#9aa8ca',fontSize:12}}>
+            <input type="checkbox" checked={randomExpiry} onChange={e=>setRandomExpiry(e.target.checked)} style={{accentColor:'#2667ff'}}/>
+            Random Expiry
+          </label>
+          <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',margin:0,color:'#9aa8ca',fontSize:12}}>
+            <input type="checkbox" checked={randomCvv} onChange={e=>setRandomCvv(e.target.checked)} style={{accentColor:'#2667ff'}}/>
+            Random CVV
+          </label>
         </div>
       </div>
 
@@ -298,18 +324,18 @@ function CCTools() {
           <div className="generated-list">
             {generated.map((num, i) => (
               <div key={i} className="generated-item">
-                <span className="mono-input">{formatCard(num)}</span>
+                <span className="mono-input">{formatCard(n.card)}</span>
                 <button
                   className="copy-btn"
-                  onClick={() => copyToClipboard(num, `gen-${i}`)}
+                  onClick={() => copyToClipboard(n.card, `gen-${i}`)}
                 >
                   {copied === `gen-${i}` ? <CheckCircle2 size={14}/> : <Copy size={14}/>}
                 </button>
-                {expiry && <span className="gen-expiry">{expiry}</span>}
-                {cvv && <span className="gen-cvv">{cvv}</span>}
+                {n.expiry && <span className="gen-expiry">{n.expiry}</span>}
+                {n.cvv && <span className="gen-cvv">{n.cvv}</span>}
               </div>
             ))}
-            <button className="wide copy-all" onClick={() => copyToClipboard(generated.map(n => `${formatCard(n)}|${expiry}|${cvv}`).join('\n'), 'all')}>
+            <button className="wide copy-all" onClick={() => copyToClipboard(generated.map(n => `${formatCard(n.card)}|${n.expiry}|${n.cvv}`).join('\n'), 'all')}>
               <Clipboard size={14}/> {copied === 'all' ? 'Copied!' : 'Copy All (card|expiry|cvv)'}
             </button>
           </div>
