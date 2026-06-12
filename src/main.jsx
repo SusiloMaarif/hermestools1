@@ -147,6 +147,8 @@ function CCTools() {
   function handleCardChange(e) {
     const v = e.target.value.replace(/\D/g, '').slice(0, 19);
     setCard(v);
+    const raw = v.replace(/\D/g, '');
+    if (raw.length >= 6) setPrefix(raw.slice(0, 6));
   }
 
   function handleExpiryChange(e) {
