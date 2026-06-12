@@ -4,8 +4,10 @@ import { Activity, Bot, Cable, CheckCircle2, ChevronDown, Clipboard, CreditCard,
 import './styles.css';
 
 const DEFAULT_BASE_URL = 'https://router.susilo.my.id/v1';
-const ADMIN_BASE_URL = 'https://admin.susilo.my.id/admin';
-const ADMIN_TOKEN = 'ronksok-admin-123';
+// Admin calls go through the server-side proxy (api/admin/[...path].js).
+// The admin token now lives ONLY on the server (env var ADMIN_TOKEN) and is
+// never bundled into the client, so it can't be read from the browser.
+const ADMIN_BASE_URL = '/api/admin';
 const TEMP_MAIL_BASE = 'https://api.mail.tm';
 
 function getSaved(key, fallback) {
@@ -95,7 +97,7 @@ function App() {
   async function loadModels() {
     setStatus('checking');
     try {
-      const res = await fetch(`${baseUrl.replace(/\/$/, '')}/models`, {
+      const res = await fetch('/api/models', {
         headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -277,9 +279,7 @@ function RouterAdminPage() {
   async function loadProviders() {
     setMsg('Loading providers...');
     try {
-      const res = await fetch(`${ADMIN_BASE_URL}/providers`, {
-        headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
-      });
+      const res = await fetch(`${ADMIN_BASE_URL}/providers`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setProviders(data.nodes || []);
@@ -291,9 +291,7 @@ function RouterAdminPage() {
   }
 async function loadCombos() {
   try {
-    const res = await fetch(`${ADMIN_BASE_URL}/combos`, {
-      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
-    });
+    const res = await fetch(`${ADMIN_BASE_URL}/combos`);
 
     const data = await res.json();
 
@@ -309,10 +307,7 @@ async function loadCombos() {
     try {
       const res = await fetch(`${ADMIN_BASE_URL}/provider/add`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${ADMIN_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
       });
       const data = await res.json();
@@ -331,10 +326,7 @@ async function loadCombos() {
     try {
       const res = await fetch(`${ADMIN_BASE_URL}/provider/delete`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${ADMIN_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerId })
       });
       const data = await res.json();
