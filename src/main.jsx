@@ -279,7 +279,7 @@ function RouterAdminPage() {
   async function loadProviders() {
     setMsg('Loading providers...');
     try {
-      const res = await fetch(`${ADMIN_BASE_URL}/providers`);
+      const res = await fetch('/api/adminproxy?p=providers');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setProviders(data.nodes || []);
@@ -291,7 +291,7 @@ function RouterAdminPage() {
   }
 async function loadCombos() {
   try {
-    const res = await fetch(`${ADMIN_BASE_URL}/combos`);
+    const res = await fetch('/api/adminproxy?p=combos');
 
     const data = await res.json();
 
@@ -305,7 +305,7 @@ async function loadCombos() {
   async function addProvider() {
     setMsg('Adding provider...');
     try {
-      const res = await fetch(`${ADMIN_BASE_URL}/provider/add`, {
+      const res = await fetch('/api/adminproxy?p=provider/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form)
@@ -324,7 +324,7 @@ async function loadCombos() {
     if (!confirm('Delete provider ini?')) return;
     setMsg('Deleting provider...');
     try {
-      const res = await fetch(`${ADMIN_BASE_URL}/provider/delete`, {
+      const res = await fetch('/api/adminproxy?p=provider/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ providerId })
