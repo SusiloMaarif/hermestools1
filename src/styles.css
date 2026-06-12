@@ -66,3 +66,4 @@ input:disabled{background:#131d35!important;color:#6a7c9e!important;border-color
 @keyframes spin{to{transform:rotate(360deg)}}
 .spinning{animation:spin 1s linear infinite}
 @media(max-width:400px){.email-layout{grid-template-columns:1fr}.bin-details{grid-template-columns:1fr}.expiry-row{grid-template-columns:1fr}.gen-row{flex-direction:column}.gen-row select,.gen-bulk select{width:100%}}input:disabled{background:#131d35!important;color:#6a7c9e!important;border-color:#1e2b49!important;cursor:not-allowed}
+input:disabled{background:#131d35!important;color:#6a7c9e!important;border-color:#1e2b49!important;cursor:not-allowed}
