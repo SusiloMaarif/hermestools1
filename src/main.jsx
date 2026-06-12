@@ -322,7 +322,7 @@ function CCTools() {
 
         {generated.length > 0 && (
           <div className="generated-list">
-            {generated.map((num, i) => (
+            {generated.map((n, i) => (
               <div key={i} className="generated-item">
                 <span className="mono-input">{formatCard(n.card)}</span>
                 <button
