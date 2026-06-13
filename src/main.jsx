@@ -873,10 +873,6 @@ function Providers({ baseUrl, setBaseUrl, apiKey, setApiKey, apiKeys, currentKey
       <label>Single API Key (optional)</label>
       <input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Optional - atau gunakan pool keys di atas" />
 
-      <label>Bulk API Keys (satu per baris)</label>
-      <textarea className="bulk-textarea" value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"key1\nkey2\nkey3..."} rows={3} />
-      <button onClick={()=>{addBulkKeys(bulkInput);setBulkInput('');}}><Plus size={15}/> Add Bulk Keys</button>
-
       <label>Default Model</label>
       <select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}>{models.map(m=><option key={m.id} value={m.id}>{m.id}</option>)}</select>
       <div className={`notice ${status}`}>Status: {status}. Catatan: Vercel/Telegram HTTPS bisa memblokir HTTP. Pakai HTTPS tunnel/proxy untuk production.</div>
@@ -919,6 +915,7 @@ function RouterAdminPage() {
   const [combos, setCombos] = useState([]);
   const [msg, setMsg] = useState('');
   const [form, setForm] = useState({ name: '', prefix: '', baseUrl: '', apiKey: '' });
+  const [bulkInput, setBulkInput] = useState('');
 
   async function loadProviders() {
     setMsg('Loading providers...');
@@ -953,6 +950,28 @@ function RouterAdminPage() {
       loadProviders();
     } catch (e) { setMsg(`Error: ${e.message}`); }
   }
+  async function addBulkProviders(text) {
+    const lines = text.split('\n').filter(l => l.trim());
+    if (!lines.length) return;
+    setMsg(`Adding ${lines.length} providers...`);
+    let success = 0, fail = 0;
+    for (const line of lines) {
+      const parts = line.trim().split('|');
+      if (parts.length < 3) { fail++; continue; }
+      const [name, prefix, baseUrl, apiKey] = parts;
+      try {
+        const res = await fetch('/api/adminproxy?p=provider/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim(), prefix: prefix.trim(), baseUrl: baseUrl.trim(), apiKey: apiKey?.trim() || '' })
+        });
+        if (res.ok) success++; else fail++;
+      } catch (e) { fail++; }
+    }
+    setMsg(`Done: ${success} added, ${fail} failed`);
+    setBulkInput('');
+    loadProviders();
+  }
   async function deleteProvider(providerId) {
     if (!confirm('Delete provider ini?')) return;
     setMsg('Deleting provider...');
@@ -980,6 +999,13 @@ function RouterAdminPage() {
       <label>Base URL</label><input value={form.baseUrl} onChange={e=>setForm({...form, baseUrl:e.target.value})} placeholder="https://example.com/v1" />
       <label>API Key</label><input value={form.apiKey} onChange={e=>setForm({...form, apiKey:e.target.value})} placeholder="sk-..." />
       <button className="wide" onClick={addProvider}>Add Provider</button>
+      <div className="notice">{msg}</div>
+    </div>
+    <div className="card">
+      <h3>Bulk Add Providers</h3>
+      <p className="muted">Format: name|prefix|base_url|api_key (per baris)</p>
+      <textarea value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"mimo|mimo|https://api.xiaomimo.com/v1|sk-xxx\nlightning|lightning|https://api.lightning.ai/v1|sk-xxx"} rows={5} />
+      <button className="wide" onClick={()=>addBulkProviders(bulkInput)}><Plus size={15}/> Add Bulk Providers</button>
       <div className="notice">{msg}</div>
     </div>
     <div className="modelList">
