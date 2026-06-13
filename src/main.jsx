@@ -629,6 +629,9 @@ function App() {
   const [page, setPage] = useState('dashboard');
   const [baseUrl, setBaseUrl] = useState(getSaved('omni_base_url', DEFAULT_BASE_URL));
   const [apiKey, setApiKey] = useState(getSaved('omni_api_key', ''));
+  const [apiKeys, setApiKeys] = useState(() => JSON.parse(getSaved('omni_api_keys', '[]')));
+  const [currentKeyIndex, setCurrentKeyIndex] = useState(() => Number(getSaved('omni_current_key_index', '0')));
+  const [bulkInput, setBulkInput] = useState('');
   const [models, setModels] = useState([]);
   const [status, setStatus] = useState('checking');
   const [selectedModel, setSelectedModel] = useState(getSaved('omni_model', 'hermes'));
@@ -637,9 +640,43 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState(() => JSON.parse(getSaved('omni_usage', '{"requests":0,"tokens":0,"errors":0}')));
 
+  // Bulk API Key helpers
+  function getActiveKey() {
+    if (!apiKeys.length) return apiKey;
+    const idx = Math.min(currentKeyIndex, apiKeys.length - 1);
+    return apiKeys[idx] || apiKey;
+  }
+  function rotateKey() {
+    if (!apiKeys.length) return;
+    const next = (currentKeyIndex + 1) % apiKeys.length;
+    setCurrentKeyIndex(next);
+    setApiKey(apiKeys[next]);
+  }
+  function addBulkKeys(text) {
+    const lines = text.split('\n').map(k => k.trim()).filter(k => k.length > 5);
+    const existing = new Set(apiKeys);
+    const news = lines.filter(k => !existing.has(k));
+    if (!news.length) return;
+    const updated = [...apiKeys, ...news];
+    setApiKeys(updated);
+    setCurrentKeyIndex(0);
+    if (!apiKey) setApiKey(updated[0]);
+  }
+  function removeKey(idx) {
+    const updated = apiKeys.filter((_, i) => i !== idx);
+    setApiKeys(updated);
+    if (idx === currentKeyIndex) setCurrentKeyIndex(Math.max(0, currentKeyIndex - 1));
+  }
+  function switchKey(idx) {
+    setCurrentKeyIndex(idx);
+    setApiKey(apiKeys[idx]);
+  }
+
   useEffect(() => { tg?.ready?.(); tg?.expand?.(); loadModels(); }, []);
   useEffect(() => setSaved('omni_base_url', baseUrl), [baseUrl]);
   useEffect(() => setSaved('omni_api_key', apiKey), [apiKey]);
+  useEffect(() => setSaved('omni_api_keys', JSON.stringify(apiKeys)), [apiKeys]);
+  useEffect(() => setSaved('omni_current_key_index', String(currentKeyIndex)), [currentKeyIndex]);
   useEffect(() => setSaved('omni_model', selectedModel), [selectedModel]);
   useEffect(() => setSaved('omni_usage', JSON.stringify(usage)), [usage]);
 
@@ -649,7 +686,7 @@ function App() {
     setStatus('checking');
     try {
       const res = await fetch('/api/models', {
-        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {}
+        headers: getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -670,7 +707,7 @@ function App() {
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
         body: JSON.stringify({ model: selectedModel, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
       });
       let data = {};
@@ -680,7 +717,13 @@ function App() {
       setMessages([...next, { role: 'assistant', content: reply }]);
       setUsage(u => ({ requests: u.requests + 1, tokens: u.tokens + (data.usage?.total_tokens || 0), errors: u.errors }));
     } catch (e) {
-      setMessages([...next, { role: 'assistant', content: `Gagal connect ke OmniRoute: ${e.message}` }]);
+      // Auto-rotate to next key on failure
+      if (apiKeys.length > 1) {
+        rotateKey();
+        setMessages([...next, { role: 'assistant', content: `Gagal (key ${currentKeyIndex + 1}/${apiKeys.length}): ${e.message}. Auto-switching...` }]);
+      } else {
+        setMessages([...next, { role: 'assistant', content: `Gagal connect ke OmniRoute: ${e.message}` }]);
+      }
       setUsage(u => ({ ...u, errors: u.errors + 1 }));
     } finally { setBusy(false); }
   }
@@ -691,7 +734,7 @@ function App() {
       <TopTabs page={page} setPage={setPage} />
       <main className="content">
         {page === 'dashboard' && <Dashboard status={status} models={models} usage={usage} setPage={setPage} loadModels={loadModels} />}
-        {page === 'providers' && <Providers baseUrl={baseUrl} setBaseUrl={setBaseUrl} apiKey={apiKey} setApiKey={setApiKey} models={models} status={status} loadModels={loadModels} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />}
+        {page === 'providers' && <Providers baseUrl={baseUrl} setBaseUrl={setBaseUrl} apiKey={apiKey} setApiKey={setApiKey} apiKeys={apiKeys} currentKeyIndex={currentKeyIndex} bulkInput={bulkInput} setBulkInput={setBulkInput} addBulkKeys={addBulkKeys} removeKey={removeKey} switchKey={switchKey} models={models} status={status} loadModels={loadModels} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />}
         {page === 'chat' && <Chat selectedModel={selectedModel} setSelectedModel={setSelectedModel} modelNames={modelNames} messages={messages} input={input} setInput={setInput} busy={busy} sendChat={sendChat} />}
         {page === 'combos' && <Combos models={modelNames} />}
         {page === 'usage' && <Usage usage={usage} setUsage={setUsage} models={models} />}
@@ -730,11 +773,26 @@ function Dashboard({ status, models, usage, setPage, loadModels }) {
     <div className="actions"><button onClick={loadModels}>Refresh Status</button><button onClick={()=>setPage('chat')}>Open Chat</button></div>
   </section>;
 }
-function Providers({ baseUrl, setBaseUrl, apiKey, setApiKey, models, status, loadModels, selectedModel, setSelectedModel }) {
+function Providers({ baseUrl, setBaseUrl, apiKey, setApiKey, apiKeys, currentKeyIndex, bulkInput, setBulkInput, addBulkKeys, removeKey, switchKey, models, status, loadModels, selectedModel, setSelectedModel }) {
   return <section><div className="title"><h2>Providers ({models.length})</h2><button onClick={loadModels}><RefreshCcw size={16}/> Test</button></div>
     <div className="card">
       <label>OmniRoute Base URL</label><input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)} />
-      <label>API Key / Token optional</label><input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="kosongkan kalau router tidak butuh key" />
+      <label>API Key / Token optional</label>
+      {apiKeys.length > 0 && (
+        <div className="keyPoolInfo">Pool: {apiKeys.length} keys | Active: #{currentKeyIndex + 1}</div>
+      )}
+      <input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Single key (optional)" />
+      {apiKeys.length > 0 && (
+        <div className="keyList">{apiKeys.map((k,i)=>(
+          <div key={i} className={`keyItem ${i===currentKeyIndex?'active':''}`}>
+            <span onClick={()=>switchKey(i)}>Key {i+1}: {k.slice(0,12)}...</span>
+            <button onClick={()=>removeKey(i)}><Trash2 size={12}/></button>
+          </div>
+        ))}</div>
+      )}
+      <label>Bulk API Keys (satu per baris)</label>
+      <textarea value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"key1\nkey2\nkey3..."} rows={4} />
+      <button onClick={()=>{addBulkKeys(bulkInput);setBulkInput('');}}><Plus size={15}/> Add Bulk Keys</button>
       <label>Default Model</label><select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}>{models.map(m=><option key={m.id} value={m.id}>{m.id}</option>)}</select>
       <div className={`notice ${status}`}>Status: {status}. Catatan: Vercel/Telegram HTTPS bisa memblokir HTTP. Pakai HTTPS tunnel/proxy untuk production.</div>
     </div>
