@@ -916,6 +916,7 @@ function RouterAdminPage() {
   const [msg, setMsg] = useState('');
   const [form, setForm] = useState({ name: '', prefix: '', baseUrl: '', apiKey: '' });
   const [bulkInput, setBulkInput] = useState('');
+  const [bulkBaseUrl, setBulkBaseUrl] = useState('https://router.susilo.my.id/v1');
 
   async function loadProviders() {
     setMsg('Loading providers...');
@@ -955,15 +956,20 @@ function RouterAdminPage() {
     if (!lines.length) return;
     setMsg(`Adding ${lines.length} providers...`);
     let success = 0, fail = 0;
-    for (const line of lines) {
-      const parts = line.trim().split('|');
-      if (parts.length < 3) { fail++; continue; }
-      const [name, prefix, baseUrl, apiKey] = parts;
+    for (let i = 0; i < lines.length; i++) {
+      const apiKey = lines[i].trim();
+      if (!apiKey || apiKey.length < 10) { fail++; continue; }
+      const providerData = {
+        name: `provider-${Date.now().toString(36)}-${i}`,
+        prefix: `p${i+1}`,
+        baseUrl: bulkBaseUrl,
+        apiKey: apiKey
+      };
       try {
         const res = await fetch('/api/adminproxy?p=provider/add', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: name.trim(), prefix: prefix.trim(), baseUrl: baseUrl.trim(), apiKey: apiKey?.trim() || '' })
+          body: JSON.stringify(providerData)
         });
         if (res.ok) success++; else fail++;
       } catch (e) { fail++; }
@@ -1002,10 +1008,12 @@ function RouterAdminPage() {
       <div className="notice">{msg}</div>
     </div>
     <div className="card">
-      <h3>Bulk Add Providers</h3>
-      <p className="muted">Format: name|prefix|base_url|api_key (per baris)</p>
-      <textarea value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"mimo|mimo|https://api.xiaomimo.com/v1|sk-xxx\nlightning|lightning|https://api.lightning.ai/v1|sk-xxx"} rows={5} />
-      <button className="wide" onClick={()=>addBulkProviders(bulkInput)}><Plus size={15}/> Add Bulk Providers</button>
+      <h3>Bulk Add API Keys</h3>
+      <label>Base URL (sama untuk semua)</label>
+      <input value={bulkBaseUrl} onChange={e=>setBulkBaseUrl(e.target.value)} placeholder="https://router.susilo.my.id/v1" />
+      <label>API Keys (satu per baris)</label>
+      <textarea value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"sk-xxx\nsk-yyy\nsk-zzz"} rows={5} />
+      <button className="wide" onClick={()=>addBulkProviders(bulkInput)}><Plus size={15}/> Add Bulk API Keys</button>
       <div className="notice">{msg}</div>
     </div>
     <div className="modelList">
