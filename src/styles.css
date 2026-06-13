@@ -78,3 +78,6 @@ textarea.bulk-textarea{background:#0d1427;border:1px solid #1e2b49;border-radius
 .keyItem.active span{color:#8aa8ff}
 .keyItem button{background:none;border:none;color:#ff6060;cursor:pointer;padding:2px}
 .keyItem button:hover{color:#ff4d4d}
+.costBanner{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-radius:14px;margin-bottom:12px;font-size:12px;font-family:ui-monospace,monospace}
+.costBanner.paid{background:#1a2a4a;border:1px solid #3a5aaa;color:#8aa8ff}
+.costBanner.free{background:#1a3a2a;border:1px solid #2a5a3a;color:#80ffb3}

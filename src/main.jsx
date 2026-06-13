@@ -7,6 +7,60 @@ const DEFAULT_BASE_URL = 'https://router.susilo.my.id/v1';
 const ADMIN_BASE_URL = '/api/admin';
 const TEMP_MAIL_BASE = 'https://api.mail.tm';
 
+// Pricing per 1M tokens (input, output) — null = free
+const PRICING = {
+  // OpenAI
+  'gpt-4o-mini': [0.15, 0.60], 'gpt-4o': [2.50, 10.00], 'gpt-4o-2024-05-13': [2.50, 10.00],
+  'gpt-4-turbo': [10.00, 30.00], 'gpt-3.5-turbo': [0.50, 1.50],
+  // Anthropic
+  'claude-3-5-haiku-20241022': [0.80, 4.00], 'claude-3-5-sonnet-20241022': [3.00, 15.00],
+  'claude-3-5-sonnet-4-20250514': [3.00, 15.00], 'claude-3-opus-20240229': [15.00, 75.00],
+  'claude-3-sonnet-20240229': [3.00, 15.00], 'claude-3-haiku-20240307': [0.80, 4.00],
+  'claude_haiku_3_5': [0.80, 4.00], 'claude_sonnet_4': [3.00, 15.00], 'claude_opus_4': [15.00, 75.00],
+  // Google
+  'gemini-1.5-flash': [0.075, 0.30], 'gemini-1.5-pro': [1.25, 5.00], 'gemini-2.0-flash-exp': [0.00, 0.00],
+  'gemini-3-flash': [0.075, 0.30], 'gemini-3-pro': [1.25, 5.00],
+  'gemini-3_flash': [0.075, 0.30], 'gemini-3_pro': [1.25, 5.00],
+  // DeepSeek
+  'deepseek-chat': [0.14, 0.28], 'deepseek-coder': [0.14, 0.28], 'deepseek-v4': [0.27, 1.10],
+  'deepseek_v4': [0.27, 1.10], 'deepseek-v4-flash-free': null,
+  // MiniMax
+  'minimax-m2.7': [0.10, 0.50], 'minimax-m2.5': [0.10, 0.50], 'minimax-m3': [0.08, 0.40],
+  'minimax-m2.7': [0.10, 0.50], 'minimax-m3-free': null,
+  // OpenCode free models
+  'big-pickle': null, 'deepseek-v4-flash-free': null, 'minimax-m3-free': null,
+  'minimax-m2.5-free': null, 'ling-2.6-1t-free': null, 'trinity-large-preview-free': null,
+  'nemotron-3-super-free': null, 'qwen3.6-plus-free': null,
+  // Local/Combo
+  'hermes': null, 'mimo': null, 'kiro': null, 'kimi-k2.5': [0.12, 0.60], 'kimi-k2.6': [0.12, 0.60],
+  // VEO
+  'veo': null, 'seedance': null,
+  // Legacy providers
+  'tllm/gpt-4o': [2.50, 10.00], 'tllm/gpt_5_4': [2.50, 10.00], 'tllm/gpt_4o': [2.50, 10.00],
+  'tllm/claude_opus_4': [15.00, 75.00], 'tllm/claude_sonnet_4': [3.00, 15.00], 'tllm/claude_haiku_3_5': [0.80, 4.00],
+  'tllm/deepseek_v4': [0.27, 1.10], 'tllm/gemini_3_flash': [0.075, 0.30], 'tllm/gemini_3_pro': [1.25, 5.00],
+  'ddgw/gpt-4o-mini': [0.15, 0.60], 'ddgw/gpt-5-mini': [0.15, 0.60],
+  'ddgw/claude-3-5-haiku-20241022': [0.80, 4.00],
+  'duckduckgo-web/gpt-4o-mini': [0.15, 0.60], 'duckduckgo-web/claude-3-5-haiku-20241022': [0.80, 4.00],
+  'ddgw/llama-4-scout': [0.20, 0.80], 'ddgw/mistral-small-2501': [0.20, 0.80], 'ddgw/o3-mini': [0.20, 0.80],
+};
+
+function calcCost(modelId, usage) {
+  const prompt_tokens = usage?.prompt_tokens || 0;
+  const completion_tokens = usage?.completion_tokens || 0;
+  const total_tokens = usage?.total_tokens || prompt_tokens + completion_tokens;
+  // Find pricing — try full ID first, then strip provider prefix
+  let price = PRICING[modelId];
+  if (!price) {
+    const short = modelId.split('/').pop();
+    price = PRICING[short] || PRICING[short.replace(/-/g, '_')] || null;
+  }
+  if (!price) return { cost: 0, isFree: true, prompt_tokens, completion_tokens, total_tokens };
+  const [inP, outP] = price;
+  const cost = (prompt_tokens * inP + completion_tokens * outP) / 1_000_000;
+  return { cost, isFree: false, prompt_tokens, completion_tokens, total_tokens };
+}
+
 function getSaved(key, fallback) {
   try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
 }
@@ -638,7 +692,8 @@ function App() {
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'Halo, saya siap via OmniRoute. Pilih model lalu kirim prompt.' }]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [usage, setUsage] = useState(() => JSON.parse(getSaved('omni_usage', '{"requests":0,"tokens":0,"errors":0}')));
+  const [usage, setUsage] = useState(() => JSON.parse(getSaved('omni_usage', '{"requests":0,"tokens":0,"errors":0,"cost":0}')));
+  const [lastCost, setLastCost] = useState(null);
 
   // Bulk API Key helpers
   function getActiveKey() {
@@ -717,8 +772,10 @@ function App() {
       try { data = await res.json(); } catch {}
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${data?.error?.message || data?.message || 'request failed'}`);
       const reply = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || 'Tidak ada output.';
+      const costInfo = calcCost(modelToUse, data.usage);
       setMessages([...next, { role: 'assistant', content: reply }]);
-      setUsage(u => ({ requests: u.requests + 1, tokens: u.tokens + (data.usage?.total_tokens || 0), errors: u.errors }));
+      setUsage(u => ({ requests: u.requests + 1, tokens: u.tokens + (data.usage?.total_tokens || 0), errors: u.errors, cost: (u.cost || 0) + costInfo.cost }));
+      setLastCost(costInfo);
     } catch (e) {
       // Try combo fallback once
       const comboFallback = getSaved('omni_combo_fallback', '');
@@ -758,7 +815,7 @@ function App() {
         {page === 'providers' && <Providers baseUrl={baseUrl} setBaseUrl={setBaseUrl} apiKey={apiKey} setApiKey={setApiKey} apiKeys={apiKeys} currentKeyIndex={currentKeyIndex} bulkInput={bulkInput} setBulkInput={setBulkInput} addBulkKeys={addBulkKeys} removeKey={removeKey} switchKey={switchKey} models={models} status={status} loadModels={loadModels} selectedModel={selectedModel} setSelectedModel={setSelectedModel} />}
         {page === 'chat' && <Chat selectedModel={selectedModel} setSelectedModel={setSelectedModel} modelNames={modelNames} messages={messages} input={input} setInput={setInput} busy={busy} sendChat={sendChat} />}
         {page === 'combos' && <Combos models={modelNames} />}
-        {page === 'usage' && <Usage usage={usage} setUsage={setUsage} models={models} />}
+        {page === 'usage' && <Usage usage={usage} setUsage={setUsage} models={models} lastCost={lastCost} />}
         {page === 'cc' && <CCTools />}
         {page === 'tempmail' && <TempMail />}
         {page === 'video' && <VideoPage models={modelNames} />}
@@ -845,8 +902,14 @@ function Combos({ models }) {
     <div className="notice">Combos saved automatic. Logic combo: primary dulu, kalo fail switch ke fallback (max 1x).</div>
   </div></section>;
 }
-function Usage({ usage, setUsage, models }) {
-  return <section><div className="title"><h2>Usage</h2><button onClick={()=>setUsage({requests:0,tokens:0,errors:0})}>Reset</button></div><div className="grid2"><Stat icon={<Activity/>} label="Requests" value={usage.requests}/><Stat icon={<Zap/>} label="Tokens" value={usage.tokens}/><Stat icon={<ShieldCheck/>} label="Errors" value={usage.errors}/><Stat icon={<Bot/>} label="Models" value={models.length}/></div></section>;
+function Usage({ usage, setUsage, models, lastCost }) {
+  return <section><div className="title"><h2>Usage</h2><button onClick={()=>setUsage({requests:0,tokens:0,errors:0,cost:0})}>Reset</button></div>
+    {lastCost && <div className={`costBanner ${lastCost.isFree?'free':'paid'}`}>
+      <span>Last call: {lastCost.prompt_tokens} in / {lastCost.completion_tokens} out / {lastCost.total_tokens} total</span>
+      <span>{lastCost.isFree ? 'FREE (no charge)' : `$${lastCost.cost.toFixed(6)}`}</span>
+    </div>}
+    <div className="grid2"><Stat icon={<Activity/>} label="Requests" value={usage.requests}/><Stat icon={<Zap/>} label="Tokens" value={usage.tokens}/><Stat icon={<ShieldCheck/>} label="Errors" value={usage.errors}/><Stat icon={<CreditCard/>} label="Total Cost" value={usage.cost ? '$'+usage.cost.toFixed(4) : '$0.0000'}/></div>
+  </section>;
 }
 function VideoPage({ models }) { return <section><div className="title"><h2>Video</h2><Play/></div><div className="card"><p className="muted">Halaman video siap untuk model video yang muncul dari OmniRoute seperti VEO/Seedance. Endpoint video bisa disambungkan sesuai format API router kamu.</p>{models.filter(m=>/veo|seedance|video/i.test(m)).map(m=><div className="model" key={m}><b>{m}</b><span>video-capable candidate</span></div>)}</div></section>; }
 function SettingsPage({ baseUrl, setBaseUrl, apiKey, setApiKey, loadModels }) { return <section><div className="title"><h2>Settings</h2><Settings/></div><div className="card"><label>Base URL</label><input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)}/><label>Authorization Bearer</label><input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="optional"/><button className="wide" onClick={loadModels}>Save & Test</button></div></section>; }
