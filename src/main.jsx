@@ -773,11 +773,11 @@ function App() {
       let res, data;
 
       if (importedModel) {
-        // Direct to provider API
+        // Direct to provider API - use full model ID (with provider prefix)
         res = await fetch(`${importedModel.baseUrl}/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...(importedModel.apiKey ? { Authorization: `Bearer ${importedModel.apiKey}` } : {}) },
-          body: JSON.stringify({ model: modelToUse, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7 })
+          body: JSON.stringify({ model: importedModel.fullId || modelToUse, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7 })
         });
       } else {
         // Via OmniRoute
@@ -1080,12 +1080,18 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
       if (!modelList.length) throw new Error('No models found');
       
       // Save to imported models with provider tag
-      const newImports = modelList.map(id => ({
-        id,
-        provider: provider.name,
-        baseUrl: provider.base_url,
-        apiKey: provider.api_key
-      }));
+      // Store model ID without provider prefix for matching
+      const newImports = modelList.map(id => {
+        // Extract just the model name without provider prefix (e.g., "minimax-m2.5" from "lightning-ai/minimax-m2.5")
+        const cleanId = id.includes('/') ? id.split('/').pop() : id;
+        return {
+          id: cleanId,
+          fullId: id,
+          provider: provider.name,
+          baseUrl: provider.base_url,
+          apiKey: provider.api_key
+        };
+      });
       
       setImportedModels(prev => {
         const filtered = prev.filter(m => m.provider !== provider.name);
