@@ -954,6 +954,8 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
   const [bulkBaseUrl, setBulkBaseUrl] = useState('https://router.susilo.my.id/v1');
   const [providerModels, setProviderModels] = useState({});
   const [expandedProvider, setExpandedProvider] = useState(null);
+  const [tab, setTab] = useState('providers');
+  const [allModels, setAllModels] = useState([]); // All models from all providers
 
   async function loadProviders() {
     setMsg('Loading providers...');
@@ -973,6 +975,28 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
       if (res.ok) setCombos(data.combos || []);
     } catch (e) { console.error(e); }
   }
+  async function loadAllModels() {
+    // Load models from all providers for the models tab
+    setMsg('Loading all models...');
+    const all = [];
+    for (const p of providers) {
+      try {
+        const res = await fetch(`${p.base_url}/models`, {
+          headers: { 'Authorization': `Bearer ${p.api_key}`, 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const models = data.data?.map(m => ({ id: m.id, provider: p.name, base_url: p.base_url })) || [];
+          all.push(...models);
+        }
+      } catch (e) { /* skip */ }
+    }
+    setAllModels(all);
+    setMsg(`${all.length} models loaded from ${providers.length} providers`);
+  }
+  useEffect(() => {
+    if (tab === 'models') loadAllModels();
+  }, [tab]);
   async function addProvider() {
     setMsg('Adding provider...');
     try {
@@ -1123,8 +1147,105 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
 
   useEffect(() => { loadProviders(); loadCombos(); }, []);
 
+  // Stats
+  const totalProviderModels = Object.values(providerModels).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+  const activeProviders = connections.filter(c => c.is_active).length;
+
   return <section>
-    <div className="title"><h2>Router Admin</h2><span className="pill">OmniRoute</span></div>
+    <div className="title">
+      <h2>Router Admin</h2>
+      <span className="pill">OmniRoute</span>
+    </div>
+    
+    {/* Stats Bar */}
+    <div style={{display:'flex',gap:'8px',margin:'8px 0',flexWrap:'wrap'}}>
+      <div className="stat-card"><div className="stat-num">{providers.length}</div><div className="stat-label">Providers</div></div>
+      <div className="stat-card"><div className="stat-num">{activeProviders}</div><div className="stat-label">Active</div></div>
+      <div className="stat-card"><div className="stat-num">{totalProviderModels}</div><div className="stat-label">Models</div></div>
+      <div className="stat-card"><div className="stat-num">{allModels.length}</div><div className="stat-label">Imported</div></div>
+    </div>
+    
+    {/* Tabs */}
+    <div style={{display:'flex',gap:'4px',margin:'10px 0',borderBottom:'1px solid #333',paddingBottom:'4px'}}>
+      <button className={tab==='providers'?'tab-btn active':'tab-btn'} onClick={()=>setTab('providers')}>📦 Providers</button>
+      <button className={tab==='models'?'tab-btn active':'tab-btn'} onClick={()=>setTab('models')}>🤖 Models</button>
+      <button className={tab==='add'?'tab-btn active':'tab-btn'} onClick={()=>setTab('add')}>➕ Add</button>
+      <button className={tab==='combos'?'tab-btn active':'tab-btn'} onClick={()=>setTab('combos')}>⚡ Combos</button>
+    </div>
+    
+    {/* PROVIDERS TAB */}
+    {tab === 'providers' && <>
+    <div className="modelList">
+      {providers.length === 0 ? (
+        <div className="notice">No providers. Add one first!</div>
+      ) : providers.map(p => {
+        const conn = connections.find(c => c.provider === p.id);
+        const isExpanded = expandedProvider === p.id;
+        const models = providerModels[p.id];
+        return <div className="modelItem" key={p.id}>
+          <div>
+            <b>{p.name}</b>
+            <div className="model-provider">{p.prefix}</div>
+            <div className="model-provider">{p.base_url}</div>
+            <div className="model-provider">
+              <span className={conn?.is_active ? 'badge-green' : 'badge-red'}>{conn?.is_active ? '🟢 Active' : '🔴 Inactive'}</span>
+              {' '}<span>test: {conn?.test_status || '-'}</span>
+            </div>
+            {models && <div className="model-list">{models.map(m => <span key={m} className="model-tag">{m}</span>)}</div>}
+          </div>
+          <div className="provider-actions">
+            <button onClick={() => loadProviderModels(p)}>{isExpanded ? '▲' : '▼'} {models ? models.length : ''}</button>
+            <button className="sync-btn" onClick={() => importProviderModels(p)}>📥 Import</button>
+            <button className="danger-btn" onClick={() => deleteProvider(p.id)}>Delete</button>
+          </div>
+        </div>;
+      })}
+    </div>
+    </>}
+    
+    {/* MODELS TAB - Full table like OmniRoute */}
+    {tab === 'models' && <>
+      {allModels.length === 0 ? (
+        <div className="notice">No models loaded. Click "Load Models" or import from a provider first.</div>
+      ) : (
+        <div style={{overflowX:'auto'}}>
+          <table className="models-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Model ID</th>
+                <th>Provider</th>
+                <th>Base URL</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allModels.map((m, i) => (
+                <tr key={m.id}>
+                  <td>{i + 1}</td>
+                  <td><code>{m.id}</code></td>
+                  <td><span className="badge-blue">{m.provider}</span></td>
+                  <td className="url-cell">{m.base_url}</td>
+                  <td>
+                    <button className="small-btn" onClick={() => {
+                      navigator.clipboard.writeText(m.id);
+                      setMsg('Copied: ' + m.id);
+                    }}>📋</button>
+                    <button className="small-btn danger-btn" onClick={() => setMsg('Delete not implemented')}>🗑️</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{marginTop:'10px'}}>
+        <button className="wide" onClick={loadAllModels}>🔄 Reload All Models</button>
+      </div>
+    </>}
+    
+    {/* ADD TAB */}
+    {tab === 'add' && <>
     <div className="card">
       <h3>Add Provider</h3>
       <label>Name</label><input value={form.name} onChange={e=>setForm({...form, name:e.target.value})} placeholder="kimchi-new" />
@@ -1132,7 +1253,6 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
       <label>Base URL</label><input value={form.baseUrl} onChange={e=>setForm({...form, baseUrl:e.target.value})} placeholder="https://example.com/v1" />
       <label>API Key</label><input value={form.apiKey} onChange={e=>setForm({...form, apiKey:e.target.value})} placeholder="sk-..." />
       <button className="wide" onClick={addProvider}>Add Provider</button>
-      <div className="notice">{msg}</div>
     </div>
     <div className="card">
       <h3>Bulk Add API Keys</h3>
@@ -1141,33 +1261,28 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
       <label>API Keys (satu per baris)</label>
       <textarea value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"sk-xxx\nsk-yyy\nsk-zzz"} rows={5} />
       <button className="wide" onClick={()=>addBulkProviders(bulkInput)}><Plus size={15}/> Add Bulk API Keys</button>
-      <div className="notice">{msg}</div>
     </div>
-    <div className="modelList">
-      {providers.map(p => {
-        const conn = connections.find(c => c.provider === p.id);
-        const isExpanded = expandedProvider === p.id;
-        const models = providerModels[p.id];
-        return <div className="modelItem" key={p.id}>
-          <div><b>{p.name}</b><div className="model-provider">{p.base_url}</div><div className="model-provider">active: {conn?.is_active ? 'yes' : 'no'} • status: {conn?.test_status || '-'}</div>
-          {models && <div className="model-list">{models.map(m => <span key={m} className="model-tag">{m}</span>)}</div>}
-          </div>
-          <div className="provider-actions">
-            <button onClick={() => loadProviderModels(p)}>{isExpanded ? '▲' : '▼'} Models</button>
-            <button className="sync-btn" onClick={() => importProviderModels(p)}>📥 Import</button>
-            <button onClick={() => deleteProvider(p.id)}>Delete</button>
-          </div>
-        </div>;
-      })}
-    </div>
+    </>}
+    
+    {/* COMBOS TAB */}
+    {tab === 'combos' && <>
     <div className="card">
-      <h3>Combos</h3>
-      {combos.length === 0 ? <div className="notice">No combos found</div> : combos.map(c => (
+      <h3>⚡ Combo List</h3>
+      {combos.length === 0 ? (
+        <div className="notice">No combos configured</div>
+      ) : combos.map(c => (
         <div key={c.id} className="modelItem">
-          <div><b>{c.name || c.id}</b><div className="model-provider">{c.updated_at || c.created_at || '-'}</div></div>
+          <div>
+            <b>{c.name || c.id}</b>
+            <div className="model-provider">Updated: {c.updated_at || c.created_at || '-'}</div>
+          </div>
+          <button className="small-btn" onClick={() => navigator.clipboard.writeText(c.id)}>📋</button>
         </div>
       ))}
     </div>
+    </>}
+    
+    <div className="notice">{msg}</div>
   </section>;
 }
 function MorePage({ setPage }) {

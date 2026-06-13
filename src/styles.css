@@ -88,4 +88,107 @@ textarea.bulk-textarea{background:#0d1427;border:1px solid #1e2b49;border-radius
 .provider-actions button:hover{background:#243560}
 .model-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .model-tag{font-size:10px;padding:2px 8px;border-radius:6px;background:#1a2a4a;color:#8dffc1;border:1px solid #243250}
+
+/* OmniRoute Dashboard Stats */
+.stat-card {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  border: 1px solid #2d3a5a;
+  border-radius: 10px;
+  padding: 10px 16px;
+  text-align: center;
+  min-width: 70px;
+  flex: 1;
+}
+.stat-num {
+  font-size: 22px;
+  font-weight: bold;
+  color: #00d4ff;
+}
+.stat-label {
+  font-size: 10px;
+  color: #8d9db6;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Tab buttons */
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: #8d9db6;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.tab-btn:hover { color: #00d4ff; }
+.tab-btn.active {
+  color: #00d4ff;
+  border-bottom: 2px solid #00d4ff;
+}
+
+/* Models table */
+.models-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.models-table th {
+  background: #1a2a4a;
+  color: #00d4ff;
+  padding: 8px 6px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #2d3a5a;
+}
+.models-table td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #1a2535;
+  color: #c9d1e0;
+  vertical-align: middle;
+}
+.models-table tr:hover td {
+  background: #1a2a4a;
+}
+.models-table code {
+  font-size: 11px;
+  color: #8dffc1;
+  background: #0d1f2d;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+/* Badges */
+.badge-green { background: #0a3d2a; color: #4ade80; padding: 2px 8px; border-radius: 6px; font-size: 11px; }
+.badge-red { background: #3d0a0a; color: #f87171; padding: 2px 8px; border-radius: 6px; font-size: 11px; }
+.badge-blue { background: #0a1f3d; color: #60a5fa; padding: 2px 8px; border-radius: 6px; font-size: 11px; }
+
+/* Buttons */
+.small-btn {
+  background: #2d3a5a;
+  border: 1px solid #3d4a6a;
+  color: #c9d1e0;
+  padding: 3px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 4px;
+}
+.small-btn:hover { background: #3d4a6a; }
+.danger-btn { color: #f87171 !important; }
+.danger-btn:hover { background: #3d0a0a !important; }
+
+/* URL cell - truncate long URLs */
+.url-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #6b7fa3;
+}
 .sync-btn{background:linear-gradient(135deg,#2568ff,#3c8aff)!important;color:white!important}
