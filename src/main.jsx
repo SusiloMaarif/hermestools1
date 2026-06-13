@@ -1097,7 +1097,25 @@ function RouterAdminPage({ importedModels, setImportedModels }) {
         const filtered = prev.filter(m => m.provider !== provider.name);
         return [...filtered, ...newImports];
       });
-      setMsg(`✅ ${modelList.length} models imported from ${provider.name}!`);
+
+      // Register models to OmniRoute
+      try {
+        const modelsToRegister = newImports.map(m => ({
+          model: m.fullId,
+          base_url: m.baseUrl,
+          api_key: m.apiKey,
+          provider: m.provider
+        }));
+        await fetch('/api/adminproxy?p=models/bulk-add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ models: modelsToRegister })
+        });
+        setMsg(`✅ ${modelList.length} models imported from ${provider.name} & registered to OmniRoute!`);
+      } catch (regErr) {
+        // If registration fails, still show import success
+        setMsg(`✅ ${modelList.length} models imported from ${provider.name}! (OmniRoute registration skipped)`);
+      }
     } catch (e) {
       setMsg(`❌ Import failed: ${e.message}`);
     }

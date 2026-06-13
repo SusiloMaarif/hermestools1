@@ -6,7 +6,7 @@
 // The admin token is injected SERVER-SIDE (env var ADMIN_TOKEN).
 
 const ADMIN_BASE = 'https://admin.susilo.my.id/admin';
-const ALLOWED = new Set(['providers', 'combos', 'provider/add', 'provider/delete', 'provider/models', 'provider/import-models']);
+const ALLOWED = new Set(['providers', 'combos', 'provider/add', 'provider/delete', 'provider/models', 'provider/import-models', 'model/add', 'models/bulk-add']);
 
 async function fetchModelsFromProvider(baseUrl, apiKey) {
   try {
@@ -72,6 +72,58 @@ export default async function handler(req, res) {
       res.send(text);
     } catch (e) {
       res.status(502).json({ error: `Import failed: ${e.message}` });
+    }
+    return;
+  }
+
+  // Special case: model/add - add a single model to OmniRoute
+  if (p === 'model/add') {
+    const { model, baseUrl, apiKey, provider } = req.body || {};
+    if (!model || !baseUrl) {
+      res.status(400).json({ error: 'model and baseUrl required' });
+      return;
+    }
+    try {
+      const upstream = await fetch(`${ADMIN_BASE}/model/add`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ model, base_url: baseUrl, api_key: apiKey, provider })
+      });
+      const text = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader('Content-Type', 'application/json');
+      res.send(text);
+    } catch (e) {
+      res.status(502).json({ error: `Add model failed: ${e.message}` });
+    }
+    return;
+  }
+
+  // Special case: models/bulk-add - add multiple models to OmniRoute
+  if (p === 'models/bulk-add') {
+    const { models } = req.body || {};
+    if (!models || !Array.isArray(models)) {
+      res.status(400).json({ error: 'models array required' });
+      return;
+    }
+    try {
+      const upstream = await fetch(`${ADMIN_BASE}/models/bulk-add`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ models })
+      });
+      const text = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader('Content-Type', 'application/json');
+      res.send(text);
+    } catch (e) {
+      res.status(502).json({ error: `Bulk add failed: ${e.message}` });
     }
     return;
   }
