@@ -705,10 +705,13 @@ function App() {
     setMessages(next);
     setBusy(true);
     try {
+      const comboPrimary = getSaved('omni_combo_primary', selectedModel);
+      const comboFallback = getSaved('omni_combo_fallback', '');
+      const modelToUse = comboPrimary || selectedModel;
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
-        body: JSON.stringify({ model: selectedModel, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
+        body: JSON.stringify({ model: modelToUse, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
       });
       let data = {};
       try { data = await res.json(); } catch {}
@@ -717,7 +720,25 @@ function App() {
       setMessages([...next, { role: 'assistant', content: reply }]);
       setUsage(u => ({ requests: u.requests + 1, tokens: u.tokens + (data.usage?.total_tokens || 0), errors: u.errors }));
     } catch (e) {
-      // Auto-rotate to next key on failure
+      // Try combo fallback once
+      const comboFallback = getSaved('omni_combo_fallback', '');
+      if (comboFallback && comboFallback !== getSaved('omni_combo_primary', '')) {
+        try {
+          const res2 = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
+            body: JSON.stringify({ model: comboFallback, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
+          });
+          let data2 = {};
+          try { data2 = await res2.json(); } catch {}
+          if (res2.ok && (data2?.choices?.[0]?.message?.content || data2?.choices?.[0]?.text)) {
+            const reply = data2?.choices?.[0]?.message?.content || data2?.choices?.[0]?.text;
+            setMessages([...next, { role: 'assistant', content: `[Combo fallback → ${comboFallback}] ${reply}` }]);
+            setBusy(false);
+            return;
+          }
+        } catch {}
+      }
       if (apiKeys.length > 1) {
         rotateKey();
         setMessages([...next, { role: 'assistant', content: `Gagal (key ${currentKeyIndex + 1}/${apiKeys.length}): ${e.message}. Auto-switching...` }]);
@@ -813,12 +834,15 @@ function Chat({ selectedModel, setSelectedModel, modelNames, messages, input, se
   </section>;
 }
 function Combos({ models }) {
-  const [primary, setPrimary] = useState(models[0] || 'hermes');
-  const [fallback, setFallback] = useState(models[1] || 'kiro');
+  const [primary, setPrimary] = useState(() => getSaved('omni_combo_primary', models[0] || 'hermes'));
+  const [fallback, setFallback] = useState(() => getSaved('omni_combo_fallback', models[1] || 'kiro'));
+  useEffect(() => setSaved('omni_combo_primary', primary), [primary]);
+  useEffect(() => setSaved('omni_combo_fallback', fallback), [fallback]);
   return <section><div className="title"><h2>Combos</h2><span className="pill">UI Router</span></div><div className="card">
     <label>Primary Model</label><select value={primary} onChange={e=>setPrimary(e.target.value)}>{models.map(m=><option key={m}>{m}</option>)}</select>
     <label>Fallback Model</label><select value={fallback} onChange={e=>setFallback(e.target.value)}>{models.map(m=><option key={m}>{m}</option>)}</select>
     <div className="comboLine"><CheckCircle2/> {primary} → fallback ke {fallback}</div>
+    <div className="notice">Combos saved automatic. Logic combo: primary dulu, kalo fail switch ke fallback (max 1x).</div>
   </div></section>;
 }
 function Usage({ usage, setUsage, models }) {
