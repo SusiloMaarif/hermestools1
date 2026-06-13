@@ -825,7 +825,7 @@ function App() {
         {page === 'video' && <VideoPage models={modelNames} />}
         {page === 'settings' && <SettingsPage baseUrl={baseUrl} setBaseUrl={setBaseUrl} apiKey={apiKey} setApiKey={setApiKey} loadModels={loadModels} />}
         {page === 'more' && <MorePage setPage={setPage} />}
-        {page === 'routeradmin' && <RouterAdminPage />}
+        {page === 'routeradmin' && <RouterAdminPage importedModels={importedModels} setImportedModels={setImportedModels} />}
       </main>
       <BottomNav page={page} setPage={setPage} />
     </div>
@@ -918,7 +918,7 @@ function Usage({ usage, setUsage, models, lastCost }) {
 }
 function VideoPage({ models }) { return <section><div className="title"><h2>Video</h2><Play/></div><div className="card"><p className="muted">Halaman video siap untuk model video yang muncul dari OmniRoute seperti VEO/Seedance. Endpoint video bisa disambungkan sesuai format API router kamu.</p>{models.filter(m=>/veo|seedance|video/i.test(m)).map(m=><div className="model" key={m}><b>{m}</b><span>video-capable candidate</span></div>)}</div></section>; }
 function SettingsPage({ baseUrl, setBaseUrl, apiKey, setApiKey, loadModels }) { return <section><div className="title"><h2>Settings</h2><Settings/></div><div className="card"><label>Base URL</label><input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)}/><label>Authorization Bearer</label><input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="optional"/><button className="wide" onClick={loadModels}>Save & Test</button></div></section>; }
-function RouterAdminPage() {
+function RouterAdminPage({ importedModels, setImportedModels }) {
   const [providers, setProviders] = useState([]);
   const [connections, setConnections] = useState([]);
   const [combos, setCombos] = useState([]);
