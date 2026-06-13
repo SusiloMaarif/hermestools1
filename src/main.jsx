@@ -776,24 +776,31 @@ function Dashboard({ status, models, usage, setPage, loadModels }) {
 function Providers({ baseUrl, setBaseUrl, apiKey, setApiKey, apiKeys, currentKeyIndex, bulkInput, setBulkInput, addBulkKeys, removeKey, switchKey, models, status, loadModels, selectedModel, setSelectedModel }) {
   return <section><div className="title"><h2>Providers ({models.length})</h2><button onClick={loadModels}><RefreshCcw size={16}/> Test</button></div>
     <div className="card">
-      <label>OmniRoute Base URL</label><input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)} />
-      <label>API Key / Token optional</label>
+      <label>OmniRoute Base URL</label>
+      <input value={baseUrl} onChange={e=>setBaseUrl(e.target.value)} />
+
       {apiKeys.length > 0 && (
-        <div className="keyPoolInfo">Pool: {apiKeys.length} keys | Active: #{currentKeyIndex + 1}</div>
+        <>
+          <label>API Key Pool</label>
+          <div className="keyPoolInfo">Pool: {apiKeys.length} keys | Active: #{currentKeyIndex + 1}</div>
+          <div className="keyList">{apiKeys.map((k,i)=>(
+            <div key={i} className={`keyItem ${i===currentKeyIndex?'active':''}`}>
+              <span onClick={()=>switchKey(i)}>Key {i+1}: {k.slice(0,12)}...</span>
+              <button onClick={()=>removeKey(i)}><Trash2 size={12}/></button>
+            </div>
+          ))}</div>
+        </>
       )}
-      <input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Single key (optional)" />
-      {apiKeys.length > 0 && (
-        <div className="keyList">{apiKeys.map((k,i)=>(
-          <div key={i} className={`keyItem ${i===currentKeyIndex?'active':''}`}>
-            <span onClick={()=>switchKey(i)}>Key {i+1}: {k.slice(0,12)}...</span>
-            <button onClick={()=>removeKey(i)}><Trash2 size={12}/></button>
-          </div>
-        ))}</div>
-      )}
+
+      <label>Single API Key (optional)</label>
+      <input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Optional - atau gunakan pool keys di atas" />
+
       <label>Bulk API Keys (satu per baris)</label>
-      <textarea value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"key1\nkey2\nkey3..."} rows={4} />
+      <textarea className="bulk-textarea" value={bulkInput} onChange={e=>setBulkInput(e.target.value)} placeholder={"key1\nkey2\nkey3..."} rows={3} />
       <button onClick={()=>{addBulkKeys(bulkInput);setBulkInput('');}}><Plus size={15}/> Add Bulk Keys</button>
-      <label>Default Model</label><select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}>{models.map(m=><option key={m.id} value={m.id}>{m.id}</option>)}</select>
+
+      <label>Default Model</label>
+      <select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}>{models.map(m=><option key={m.id} value={m.id}>{m.id}</option>)}</select>
       <div className={`notice ${status}`}>Status: {status}. Catatan: Vercel/Telegram HTTPS bisa memblokir HTTP. Pakai HTTPS tunnel/proxy untuk production.</div>
     </div>
     <div className="modelList">{models.map(m=><div className="model" key={m.id}><b>{m.id}</b><span>{m.name || m.owned_by || 'model'}</span></div>)}</div>

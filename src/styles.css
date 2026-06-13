@@ -69,8 +69,8 @@ input:disabled{background:#131d35!important;color:#6a7c9e!important;border-color
 input:disabled{background:#131d35!important;color:#6a7c9e!important;border-color:#1e2b49!important;cursor:not-allowed}
 
 /* ==================== BULK API KEYS ==================== */
-textarea{background:#0d1427;border:1px solid #1e2b49;border-radius:12px;color:#cbd5ff;padding:10px;width:100%;resize:vertical;font-family:ui-monospace,monospace;font-size:12px;box-sizing:border-box}
-.keyPoolInfo{font-size:12px;color:#8aa8ff;padding:6px 10px;background:#0d1a30;border:1px solid #1e2b49;border-radius:12px;margin-bottom:6px;text-align:center}
+textarea.bulk-textarea{background:#0d1427;border:1px solid #1e2b49;border-radius:12px;color:#cbd5ff;padding:10px;width:100%;resize:vertical;font-family:ui-monospace,monospace;font-size:12px;box-sizing:border-box}
+.keyPoolInfo{font-size:12px;color:#8aa8ff;padding:6px 10px;background:#0d1a30;border:1px solid #1e2b49;border-radius:12px;margin:6px 0;text-align:center}
 .keyList{display:flex;flex-direction:column;gap:4px;margin:6px 0}
 .keyItem{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#0d1a30;border:1px solid #1e2b49;border-radius:10px;font-size:11px;font-family:ui-monospace,monospace}
 .keyItem.active{border-color:#4f85ff;background:#0d2040}
