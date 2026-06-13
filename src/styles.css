@@ -88,3 +88,4 @@ textarea.bulk-textarea{background:#0d1427;border:1px solid #1e2b49;border-radius
 .provider-actions button:hover{background:#243560}
 .model-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .model-tag{font-size:10px;padding:2px 8px;border-radius:6px;background:#1a2a4a;color:#8dffc1;border:1px solid #243250}
+.sync-btn{background:linear-gradient(135deg,#2568ff,#3c8aff)!important;color:white!important}

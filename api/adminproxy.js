@@ -6,7 +6,7 @@
 // The admin token is injected SERVER-SIDE (env var ADMIN_TOKEN).
 
 const ADMIN_BASE = 'https://admin.susilo.my.id/admin';
-const ALLOWED = new Set(['providers', 'combos', 'provider/add', 'provider/delete', 'provider/models']);
+const ALLOWED = new Set(['providers', 'combos', 'provider/add', 'provider/delete', 'provider/models', 'provider/import-models']);
 
 async function fetchModelsFromProvider(baseUrl, apiKey) {
   try {
@@ -47,6 +47,32 @@ export default async function handler(req, res) {
     }
     const result = await fetchModelsFromProvider(baseUrl, apiKey);
     res.json(result);
+    return;
+  }
+
+  // Special case: provider/import-models - call admin API to import models for provider
+  if (p === 'provider/import-models') {
+    const { providerId, baseUrl, apiKey } = req.body || {};
+    if (!providerId || !baseUrl) {
+      res.status(400).json({ error: 'providerId and baseUrl required' });
+      return;
+    }
+    try {
+      const upstream = await fetch(`${ADMIN_BASE}/provider/import-models`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ providerId, baseUrl, apiKey })
+      });
+      const text = await upstream.text();
+      res.status(upstream.status);
+      res.setHeader('Content-Type', 'application/json');
+      res.send(text);
+    } catch (e) {
+      res.status(502).json({ error: `Import failed: ${e.message}` });
+    }
     return;
   }
 

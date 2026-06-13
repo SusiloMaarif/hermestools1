@@ -1024,6 +1024,26 @@ function RouterAdminPage() {
     }
   }
 
+  async function importProviderModels(provider) {
+    setMsg(`Importing models for ${provider.name}...`);
+    try {
+      const res = await fetch('/api/adminproxy?p=provider/import-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerId: provider.id, baseUrl: provider.base_url, apiKey: provider.api_key })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMsg(`✅ ${data.imported || data.models?.length || 0} models imported successfully!`);
+        loadProviders();
+      } else {
+        setMsg(`❌ Import failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (e) {
+      setMsg(`❌ Error: ${e.message}`);
+    }
+  }
+
   useEffect(() => { loadProviders(); loadCombos(); }, []);
 
   return <section>
@@ -1057,6 +1077,7 @@ function RouterAdminPage() {
           </div>
           <div className="provider-actions">
             <button onClick={() => loadProviderModels(p)}>{isExpanded ? '▲' : '▼'} Models</button>
+            <button className="sync-btn" onClick={() => importProviderModels(p)}>📥 Import</button>
             <button onClick={() => deleteProvider(p.id)}>Delete</button>
           </div>
         </div>;
