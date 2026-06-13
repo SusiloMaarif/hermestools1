@@ -694,6 +694,10 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState(() => JSON.parse(getSaved('omni_usage', '{"requests":0,"tokens":0,"errors":0,"cost":0}')));
   const [lastCost, setLastCost] = useState(null);
+  const [importedModels, setImportedModels] = useState(() => JSON.parse(getSaved('imported_models', '[]')));
+
+  // Sync importedModels to localStorage
+  useEffect(() => { setSaved('imported_models', JSON.stringify(importedModels)); }, [importedModels]);
 
   // Bulk API Key helpers
   function getActiveKey() {
@@ -735,7 +739,7 @@ function App() {
   useEffect(() => setSaved('omni_model', selectedModel), [selectedModel]);
   useEffect(() => setSaved('omni_usage', JSON.stringify(usage)), [usage]);
 
-  const modelNames = models.map(m => m.id || m.name).filter(Boolean);
+  const modelNames = [...models.map(m => m.id || m.name).filter(Boolean), ...importedModels.map(m => m.id)];
 
   async function loadModels() {
     setStatus('checking');
@@ -874,7 +878,12 @@ function Providers({ baseUrl, setBaseUrl, apiKey, setApiKey, apiKeys, currentKey
       <input value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Optional - atau gunakan pool keys di atas" />
 
       <label>Default Model</label>
-      <select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}>{models.map(m=><option key={m.id} value={m.id}>{m.id}</option>)}</select>
+      <select value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}>
+        {models.map(m=><option key={m.id} value={m.id}>{m.id}</option>)}
+        {importedModels.length > 0 && <optgroup label="📥 Imported Models">
+          {importedModels.map(m=><option key={m.id} value={m.id}>{m.id} ({m.provider})</option>)}
+        </optgroup>}
+      </select>
       <div className={`notice ${status}`}>Status: {status}. Catatan: Vercel/Telegram HTTPS bisa memblokir HTTP. Pakai HTTPS tunnel/proxy untuk production.</div>
     </div>
     <div className="modelList">{models.map(m=><div className="model" key={m.id}><b>{m.id}</b><span>{m.name || m.owned_by || 'model'}</span></div>)}</div>
@@ -949,8 +958,14 @@ function RouterAdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setForm({ name: '', prefix: '', baseUrl: '', apiKey: '' });
-      setMsg('Provider added');
+      setMsg('Provider added - importing models...');
       loadProviders();
+      // Auto-import models after add
+      if (data.provider?.id) {
+        setTimeout(async () => {
+          await importProviderModels({ id: data.provider.id, name: form.name, base_url: form.baseUrl, api_key: form.apiKey });
+        }, 1000);
+      }
     } catch (e) { setMsg(`Error: ${e.message}`); }
   }
   async function addBulkProviders(text) {
@@ -1027,20 +1042,32 @@ function RouterAdminPage() {
   async function importProviderModels(provider) {
     setMsg(`Importing models for ${provider.name}...`);
     try {
-      const res = await fetch('/api/adminproxy?p=provider/import-models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerId: provider.id, baseUrl: provider.base_url, apiKey: provider.api_key })
+      // Fetch models directly from provider baseUrl
+      const res = await fetch(`${provider.base_url}/models`, {
+        headers: { 'Authorization': `Bearer ${provider.api_key}`, 'Content-Type': 'application/json' }
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (res.ok) {
-        setMsg(`✅ ${data.imported || data.models?.length || 0} models imported successfully!`);
-        loadProviders();
-      } else {
-        setMsg(`❌ Import failed: ${data.error || 'Unknown error'}`);
-      }
+      
+      // Extract model IDs from OpenAI format or direct array
+      const modelList = data.data?.map(m => m.id) || data.models || [];
+      if (!modelList.length) throw new Error('No models found');
+      
+      // Save to imported models with provider tag
+      const newImports = modelList.map(id => ({
+        id,
+        provider: provider.name,
+        baseUrl: provider.base_url,
+        apiKey: provider.api_key
+      }));
+      
+      setImportedModels(prev => {
+        const filtered = prev.filter(m => m.provider !== provider.name);
+        return [...filtered, ...newImports];
+      });
+      setMsg(`✅ ${modelList.length} models imported from ${provider.name}!`);
     } catch (e) {
-      setMsg(`❌ Error: ${e.message}`);
+      setMsg(`❌ Import failed: ${e.message}`);
     }
   }
 
