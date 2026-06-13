@@ -767,12 +767,28 @@ function App() {
       const comboPrimary = getSaved('omni_combo_primary', selectedModel);
       const comboFallback = getSaved('omni_combo_fallback', '');
       const modelToUse = comboPrimary || selectedModel;
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
-        body: JSON.stringify({ model: modelToUse, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
-      });
-      let data = {};
+
+      // Check if using imported model - send directly to provider
+      const importedModel = importedModels.find(m => m.id === modelToUse);
+      let res, data;
+
+      if (importedModel) {
+        // Direct to provider API
+        res = await fetch(`${importedModel.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(importedModel.apiKey ? { Authorization: `Bearer ${importedModel.apiKey}` } : {}) },
+          body: JSON.stringify({ model: modelToUse, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7 })
+        });
+      } else {
+        // Via OmniRoute
+        res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
+          body: JSON.stringify({ model: modelToUse, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
+        });
+      }
+
+      data = {};
       try { data = await res.json(); } catch {}
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${data?.error?.message || data?.message || 'request failed'}`);
       const reply = data?.choices?.[0]?.message?.content || data?.choices?.[0]?.text || 'Tidak ada output.';
@@ -785,12 +801,22 @@ function App() {
       const comboFallback = getSaved('omni_combo_fallback', '');
       if (comboFallback && comboFallback !== getSaved('omni_combo_primary', '')) {
         try {
-          const res2 = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
-            body: JSON.stringify({ model: comboFallback, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
-          });
-          let data2 = {};
+          const importedModel2 = importedModels.find(m => m.id === comboFallback);
+          let res2, data2;
+          if (importedModel2) {
+            res2 = await fetch(`${importedModel2.baseUrl}/chat/completions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(importedModel2.apiKey ? { Authorization: `Bearer ${importedModel2.apiKey}` } : {}) },
+              body: JSON.stringify({ model: comboFallback, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7 })
+            });
+          } else {
+            res2 = await fetch('/api/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(getActiveKey() ? { Authorization: `Bearer ${getActiveKey()}` } : {}) },
+              body: JSON.stringify({ model: comboFallback, messages: next.map(m => ({ role: m.role, content: m.content })), temperature: 0.7, stream: false })
+            });
+          }
+          data2 = {};
           try { data2 = await res2.json(); } catch {}
           if (res2.ok && (data2?.choices?.[0]?.message?.content || data2?.choices?.[0]?.text)) {
             const reply = data2?.choices?.[0]?.message?.content || data2?.choices?.[0]?.text;
@@ -804,7 +830,7 @@ function App() {
         rotateKey();
         setMessages([...next, { role: 'assistant', content: `Gagal (key ${currentKeyIndex + 1}/${apiKeys.length}): ${e.message}. Auto-switching...` }]);
       } else {
-        setMessages([...next, { role: 'assistant', content: `Gagal connect ke OmniRoute: ${e.message}` }]);
+        setMessages([...next, { role: 'assistant', content: `Gagal: ${e.message}` }]);
       }
       setUsage(u => ({ ...u, errors: u.errors + 1 }));
     } finally { setBusy(false); }
