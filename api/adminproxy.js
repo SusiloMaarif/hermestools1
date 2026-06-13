@@ -6,7 +6,24 @@
 // The admin token is injected SERVER-SIDE (env var ADMIN_TOKEN).
 
 const ADMIN_BASE = 'https://admin.susilo.my.id/admin';
-const ALLOWED = new Set(['providers', 'combos', 'provider/add', 'provider/delete']);
+const ALLOWED = new Set(['providers', 'combos', 'provider/add', 'provider/delete', 'provider/models']);
+
+async function fetchModelsFromProvider(baseUrl, apiKey) {
+  try {
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!res.ok) return { models: [], error: `HTTP ${res.status}` };
+    const data = await res.json();
+    const models = data.data?.map(m => m.id) || data.models?.map(m => m.id || m) || [];
+    return { models };
+  } catch (e) {
+    return { models: [], error: e.message };
+  }
+}
 
 export default async function handler(req, res) {
   const adminToken = process.env.ADMIN_TOKEN || '';
@@ -18,6 +35,18 @@ export default async function handler(req, res) {
   const p = String((req.query && req.query.p) || '');
   if (!ALLOWED.has(p)) {
     res.status(400).json({ error: `invalid or missing p param: "${p}"` });
+    return;
+  }
+
+  // Special case: provider/models - fetch directly from provider, not admin API
+  if (p === 'provider/models') {
+    const { baseUrl, apiKey } = req.body || {};
+    if (!baseUrl) {
+      res.status(400).json({ error: 'baseUrl required' });
+      return;
+    }
+    const result = await fetchModelsFromProvider(baseUrl, apiKey);
+    res.json(result);
     return;
   }
 

@@ -917,6 +917,8 @@ function RouterAdminPage() {
   const [form, setForm] = useState({ name: '', prefix: '', baseUrl: '', apiKey: '' });
   const [bulkInput, setBulkInput] = useState('');
   const [bulkBaseUrl, setBulkBaseUrl] = useState('https://router.susilo.my.id/v1');
+  const [providerModels, setProviderModels] = useState({});
+  const [expandedProvider, setExpandedProvider] = useState(null);
 
   async function loadProviders() {
     setMsg('Loading providers...');
@@ -994,6 +996,34 @@ function RouterAdminPage() {
     } catch (e) { setMsg(`Error: ${e.message}`); }
   }
 
+  async function loadProviderModels(provider) {
+    if (expandedProvider === provider.id) {
+      setExpandedProvider(null);
+      return;
+    }
+    setExpandedProvider(provider.id);
+    if (providerModels[provider.id]) return;
+    setMsg(`Loading models for ${provider.name}...`);
+    try {
+      const res = await fetch('/api/adminproxy?p=provider/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerId: provider.id, baseUrl: provider.base_url, apiKey: provider.api_key })
+      });
+      const data = await res.json();
+      if (res.ok && data.models) {
+        setProviderModels(prev => ({ ...prev, [provider.id]: data.models }));
+        setMsg('');
+      } else {
+        setProviderModels(prev => ({ ...prev, [provider.id]: ['Error loading models'] }));
+        setMsg(data.error || 'Failed to load models');
+      }
+    } catch (e) {
+      setProviderModels(prev => ({ ...prev, [provider.id]: ['Error: ' + e.message] }));
+      setMsg(`Error: ${e.message}`);
+    }
+  }
+
   useEffect(() => { loadProviders(); loadCombos(); }, []);
 
   return <section>
@@ -1019,9 +1049,16 @@ function RouterAdminPage() {
     <div className="modelList">
       {providers.map(p => {
         const conn = connections.find(c => c.provider === p.id);
+        const isExpanded = expandedProvider === p.id;
+        const models = providerModels[p.id];
         return <div className="modelItem" key={p.id}>
-          <div><b>{p.name}</b><div className="model-provider">{p.base_url}</div><div className="model-provider">active: {conn?.is_active ? 'yes' : 'no'} • status: {conn?.test_status || '-'}</div></div>
-          <button onClick={()=>deleteProvider(p.id)}>Delete</button>
+          <div><b>{p.name}</b><div className="model-provider">{p.base_url}</div><div className="model-provider">active: {conn?.is_active ? 'yes' : 'no'} • status: {conn?.test_status || '-'}</div>
+          {models && <div className="model-list">{models.map(m => <span key={m} className="model-tag">{m}</span>)}</div>}
+          </div>
+          <div className="provider-actions">
+            <button onClick={() => loadProviderModels(p)}>{isExpanded ? '▲' : '▼'} Models</button>
+            <button onClick={() => deleteProvider(p.id)}>Delete</button>
+          </div>
         </div>;
       })}
     </div>
