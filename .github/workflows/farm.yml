@@ -1,0 +1,56 @@
+name: Farm Bot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  farm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Create wallet
+        env:
+          WALLET_PRIVATE_KEY: ${{ secrets.WALLET_PRIVATE_KEY }}
+        run: |
+          echo "Creating wallet.json..."
+          node -e "
+            const walletData = process.env.WALLET_PRIVATE_KEY;
+            const fs = require('fs');
+            // Try parsing as JSON first
+            try {
+              const j = JSON.parse(walletData);
+              fs.writeFileSync('wallet.json', JSON.stringify(j));
+            } catch {
+              fs.writeFileSync('wallet.json', JSON.stringify({private_key: walletData}));
+            }
+            console.log('Wallet created');
+          "
+      
+      - name: Start bot
+        run: |
+          node bot.js > /tmp/farm.log 2>&1 &
+          echo "Bot PID: $!"
+          sleep 15
+          tail -40 /tmp/farm.log || echo "No log yet"
+      
+      - name: Monitor
+        run: |
+          for i in \$(seq 1 30); do
+            echo "=== Check \$i (\$(date '+%H:%M:%S')) ==="
+            tail -5 /tmp/farm.log 2>/dev/null || echo "..."
+            sleep 60
+          done
