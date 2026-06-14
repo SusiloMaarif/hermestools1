@@ -3,7 +3,7 @@ name: Farm Bot
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, owntown-farm]
 
 jobs:
   farm:
